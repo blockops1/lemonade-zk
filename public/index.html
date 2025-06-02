@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lemonade Stand with ZK Proof</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #000;
+            color: #fff;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        #game-container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 2px solid #fff;
+            padding: 20px;
+        }
+        #game-display {
+            white-space: pre;
+            font-family: 'Courier New', monospace;
+            margin: 20px 0;
+            text-align: left;
+            display: inline-block;
+        }
+        #game-input {
+            margin: 20px 0;
+        }
+        input {
+            background-color: #000;
+            color: #fff;
+            border: 1px solid #fff;
+            padding: 5px;
+            width: 100px;
+            text-align: center;
+        }
+        button {
+            background-color: #fff;
+            color: #000;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        #proof-status {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #fff;
+        }
+    </style>
+    <script>
+        // Add early console log to check if HTML is parsing
+        console.log('Starting HTML parse');
+        
+        // More detailed error handling
+        window.addEventListener('error', function(event) {
+            console.error('Global error:', event.error);
+            console.error('Error details:', {
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno
+            });
+        });
+    </script>
+</head>
+<body>
+    <div id="game-container">
+        <h1>LEMONADE STAND</h1>
+        <div id="game-display"></div>
+        <div id="game-input">
+            <input type="number" id="player-input" placeholder="Enter value">
+            <button onclick="window.submitInput()">Submit</button>
+        </div>
+        <div id="proof-status"></div>
+    </div>
+    
+    <script>
+        console.log('Body script executing');
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM Content Loaded');
+        });
+
+        // Initialize game after bundle loads
+        function initGame() {
+            console.log('Initializing game...');
+            if (typeof LemonadeStand === 'undefined') {
+                console.error('LemonadeStand class not found');
+                return;
+            }
+            if (!window.game) {
+                console.log('Creating new game instance');
+                window.game = new LemonadeStand();
+                window.gameLoaded = true;
+                console.log('Game initialized successfully');
+            }
+        }
+
+        window.addEventListener('load', function() {
+            console.log('Window loaded');
+            if (!window.gameLoaded) {
+                console.log('Game not loaded yet, waiting for bundle...');
+                // Give bundle.js a moment to execute
+                setTimeout(initGame, 100);
+            }
+        });
+    </script>
+
+    <script src="/bundle.js" 
+            onerror="console.error('Failed to load bundle.js')" 
+            onload="console.log('bundle.js loaded successfully'); initGame();"
+            defer></script>
+</body>
+</html> 
