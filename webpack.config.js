@@ -1,59 +1,120 @@
 const path = require('path');
 const webpack = require('webpack');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
+const NodePolyfillPlugin = require('node-polyfill-webpack-plugin');
 
 module.exports = {
   mode: 'development',
-  entry: './src/game/game.js',
+  entry: './src/index.js',
   output: {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'public'),
     publicPath: '/',
+    clean: true
   },
+  devtool: 'source-map',
   module: {
     rules: [
       {
         test: /\.js$/,
-        exclude: /node_modules/,
+        exclude: /node_modules\/(?!(@aztec\/bb\.js|@noir-lang\/backend_barretenberg))/,
         use: {
           loader: 'babel-loader',
           options: {
-            presets: ['@babel/preset-env']
+            presets: [
+              ['@babel/preset-env', {
+                targets: {
+                  browsers: ['last 2 versions']
+                }
+              }]
+            ],
+            cacheDirectory: true
           }
         }
+      },
+      {
+        test: /\.wasm$/,
+        type: "asset/resource"
       }
     ]
+  },
+  externals: {
+    '@noir-lang/noir_wasm': 'NoirWasm'
   },
   devServer: {
     static: {
       directory: path.join(__dirname, 'public'),
-      publicPath: '/'
+      watch: true
     },
-    compress: true,
-    port: 9001,
+    port: 9000,
+    host: 'localhost',
     hot: true,
+    liveReload: true,
     historyApiFallback: true,
-    devMiddleware: {
-      writeToDisk: true,
-    },
     client: {
-      overlay: true,
-      progress: true
-    }
+      overlay: {
+        errors: true,
+        warnings: false
+      },
+      progress: true,
+      reconnect: true
+    },
+    watchFiles: ['src/**/*', 'public/**/*'],
+    open: true
   },
-  devtool: 'source-map',
   resolve: {
+    extensions: ['.js', '.wasm', '.mjs'],
     fallback: {
       "crypto": require.resolve("crypto-browserify"),
       "stream": require.resolve("stream-browserify"),
+      "assert": require.resolve("assert/"),
+      "http": require.resolve("stream-http"),
+      "https": require.resolve("https-browserify"),
+      "os": require.resolve("os-browserify/browser"),
+      "url": require.resolve("url/"),
       "buffer": require.resolve("buffer/"),
+      "process": require.resolve("process/browser.js"),
       "path": require.resolve("path-browserify"),
+      "worker_threads": false,
       "fs": false
+    },
+    alias: {
+      '@aztec/bb.js': path.resolve(__dirname, 'node_modules/@aztec/bb.js/dest/browser/index.js'),
+      'process': 'process/browser.js'
     }
   },
+  experiments: {
+    asyncWebAssembly: true,
+    syncWebAssembly: true
+  },
   plugins: [
+    new NodePolyfillPlugin({
+      excludeAliases: ['console']
+    }),
     new webpack.ProvidePlugin({
-      Buffer: ['buffer', 'Buffer'],
-      process: 'process/browser'
-    })
-  ]
+      process: ['process/browser.js'],
+      Buffer: ['buffer', 'Buffer']
+    }),
+    new webpack.DefinePlugin({
+      'process.browser': true,
+      'process.env.NODE_DEBUG': JSON.stringify(process.env.NODE_DEBUG),
+      'process.env': JSON.stringify(process.env)
+    }),
+    new CopyWebpackPlugin({
+      patterns: [
+        { from: 'public', to: '' },
+        {
+          from: path.resolve(__dirname, 'node_modules/@noir-lang/noir_wasm/dist/web'),
+          to: 'noir_wasm'
+        }
+      ]
+    }),
+    new webpack.HotModuleReplacementPlugin()
+  ],
+  stats: {
+    colors: true,
+    modules: true,
+    reasons: true,
+    errorDetails: true
+  }
 }; 

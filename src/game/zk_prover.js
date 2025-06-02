@@ -1,8 +1,7 @@
-import { zkVerifySession } from 'zkverifyjs';
+import { compile } from '@noir-lang/noir_wasm';
 import { BarretenbergBackend } from '@noir-lang/backend_barretenberg';
 import { Noir } from '@noir-lang/noir_js';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import circuit from '../../zk-proof/lemonade_proof/target/lemonade_proof.json';
 
 class GameState {
     constructor(currentAssets = 200, totalProfit = 0, dayCount = 0, bestDayProfit = 0, totalGlassesSold = 0, bankruptcyCount = 0) {
@@ -31,61 +30,112 @@ class ZkProver {
         this.currentState = new GameState();
         this.dailyProofs = [];
         this.finalProof = null;
-        this.session = null;
-        this.vkBase64 = null;
+        this.proofStatus = document.getElementById('proof-status');
+        this.proofDisplay = document.getElementById('proof-display');
         this.noir = null;
         this.backend = null;
+        this.initialized = false;
+        this.initPromise = null;
+
+        // Create proof display element if it doesn't exist
+        if (!this.proofDisplay) {
+            this.proofDisplay = document.createElement('pre');
+            this.proofDisplay.id = 'proof-display';
+            this.proofDisplay.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                max-width: 400px;
+                max-height: 300px;
+                overflow: auto;
+                background: rgba(0, 0, 0, 0.8);
+                color: #00ff00;
+                padding: 10px;
+                border-radius: 5px;
+                font-family: monospace;
+                font-size: 12px;
+                z-index: 1000;
+            `;
+            document.body.appendChild(this.proofDisplay);
+        }
+    }
+
+    updateProofStatus(message) {
+        if (this.proofStatus) {
+            this.proofStatus.textContent = message;
+        }
+        console.log('Proof Status:', message);
+    }
+
+    displayProof(dayNumber, proof, input) {
+        if (this.proofDisplay) {
+            const proofData = {
+                day: dayNumber,
+                timestamp: new Date().toISOString(),
+                input,
+                proof: proof ? proof.slice(0, 100) + '...' : 'No proof generated'
+            };
+            this.proofDisplay.textContent = 'Latest Proof:\n' + JSON.stringify(proofData, null, 2);
+        }
     }
 
     async initialize() {
-        // Start a read-only session since we're just generating proofs
-        this.session = await zkVerifySession.start().Volta();
-        
-        // Initialize Noir circuit
-        this.backend = new BarretenbergBackend(this.session);
-        
-        // Load the circuit
-        const circuitPath = join(__dirname, '../../zk-proof/lemonade_proof');
-        this.noir = new Noir(circuitPath, this.backend);
-        
-        // Load and cache the verification key
-        this.vkBase64 = await this.loadVerificationKey();
-    }
-
-    async loadVerificationKey() {
-        try {
-            // Load the verification key from the compiled circuit
-            const vkPath = join(__dirname, '../../zk-proof/lemonade_proof/target/vk.bin');
-            const vkBuffer = readFileSync(vkPath);
-            return vkBuffer.toString('base64');
-        } catch (error) {
-            console.error('Failed to load verification key:', error);
-            throw new Error('Failed to load verification key. Make sure the circuit is compiled.');
-        }
-    }
-
-    async generateNoirProof(inputs) {
-        if (!this.noir) {
-            throw new Error('Noir circuit not initialized. Call initialize() first.');
+        if (this.initialized) {
+            return true;
         }
 
-        try {
-            // Generate the proof using Noir
-            const { proof } = await this.noir.generateFinalProof(inputs);
-            
-            // Convert the proof to base64
-            const proofBuffer = Buffer.from(proof);
-            return proofBuffer.toString('base64');
-        } catch (error) {
-            console.error('Failed to generate Noir proof:', error);
-            throw error;
+        if (this.initPromise) {
+            return this.initPromise;
         }
+
+        this.initPromise = (async () => {
+            try {
+                console.log('Initializing Noir WASM for browser-based proof generation...');
+                this.updateProofStatus('Initializing ZK system...');
+                
+                // Create Barretenberg backend
+                this.backend = new BarretenbergBackend(circuit);
+                await this.backend.init();
+                
+                // Create Noir instance
+                this.noir = new Noir(circuit, this.backend);
+                
+                console.log('Noir WASM initialized successfully');
+                this.updateProofStatus('ZK system ready');
+                this.initialized = true;
+                return true;
+            } catch (error) {
+                console.error('Failed to initialize ZkProver:', error);
+                this.updateProofStatus('Failed to initialize ZK system');
+                this.initialized = false;
+                throw error;
+            }
+        })();
+
+        return this.initPromise;
     }
 
     async generateDailyProof(dayNumber, glassesMade, signsMade, price, weather, glassesSold, randomFactor) {
-        if (!this.session) {
-            await this.initialize();
+        if (!this.initialized) {
+            try {
+                await this.initialize();
+            } catch (error) {
+                return {
+                    success: false,
+                    error: 'ZK system not initialized'
+                };
+            }
         }
+
+        console.log('Generating proof for day', dayNumber, 'with inputs:', {
+            glassesMade,
+            signsMade,
+            price,
+            weather,
+            glassesSold,
+            randomFactor,
+            currentState: this.currentState
+        });
 
         // Calculate expected final state based on inputs
         const lemonadeCost = glassesMade * 0.02;
@@ -95,10 +145,10 @@ class ZkProver {
         const profit = revenue - totalCost;
         
         const newState = new GameState(
-            this.currentState.currentAssets + (profit * 100), // Convert to cents
-            this.currentState.totalProfit + (profit * 100),
+            Math.round((this.currentState.currentAssets + (profit * 100))), // Convert to cents and round
+            Math.round((this.currentState.totalProfit + (profit * 100))),
             this.currentState.dayCount + 1,
-            Math.max(this.currentState.bestDayProfit, profit * 100),
+            Math.round(Math.max(this.currentState.bestDayProfit, profit * 100)),
             this.currentState.totalGlassesSold + glassesSold,
             this.currentState.bankruptcyCount + (this.currentState.currentAssets + profit * 100 <= 0 ? 1 : 0)
         );
@@ -108,12 +158,14 @@ class ZkProver {
             newState.currentAssets = 200; // $2.00 in cents
         }
 
+        console.log('Calculated new state:', newState);
+
         try {
-            // Generate the proof using your Noir circuit
-            // This should be implemented to generate the actual proof
-            // and convert it to base64
-            const proofBase64 = await this.generateNoirProof({
-                previous_state: this.currentState.toNoirInput(),
+            this.updateProofStatus('Generating proof...');
+            
+            // Prepare inputs for Noir circuit
+            const input = {
+                initial_state: this.currentState.toNoirInput(),
                 final_state: newState.toNoirInput(),
                 day_number: dayNumber.toString(),
                 glasses_made: glassesMade.toString(),
@@ -122,42 +174,66 @@ class ZkProver {
                 weather: weather.toString(),
                 glasses_sold: glassesSold.toString(),
                 random_factor: randomFactor.toString()
-            });
+            };
 
-            // Generate proof using zkVerify with updated UltraPlonk format
-            const { events, transactionResult } = await this.session
-                .verify()
-                .ultraplonk({
-                    numberOfPublicInputs: 6 // number of public inputs in our circuit
-                })
-                .execute({
-                    proofData: {
-                        proof: proofBase64,
-                        vk: this.vkBase64
-                    },
-                    domainId: 1 // Using domain 1 for our game proofs
-                });
-
-            // Listen for any errors
-            events.on('ErrorEvent', (eventData) => {
-                console.error('Proof generation error:', eventData);
-                throw new Error(`Proof generation failed: ${JSON.stringify(eventData)}`);
-            });
-
-            // Wait for the transaction result
-            const result = await transactionResult;
+            console.log('Generating UltraPlonk proof with inputs:', input);
             
-            // Store proof and update state
-            this.dailyProofs.push(result);
+            // Generate proof using Noir
+            const proof = await this.noir.generateProof(input);
+            console.log('Proof generated successfully:', {
+                proof,
+                size: proof ? proof.length : 0
+            });
+
+            // Display the proof in the browser
+            this.displayProof(dayNumber, proof, input);
+
+            // Store state update and proof
             this.currentState = newState;
-            
+            this.dailyProofs.push({
+                dayNumber,
+                glassesMade,
+                signsMade,
+                price,
+                weather,
+                glassesSold,
+                randomFactor,
+                profit,
+                proof
+            });
+
+            // Optionally store in localStorage
+            try {
+                localStorage.setItem('lemonade_proofs', JSON.stringify(this.dailyProofs));
+            } catch (e) {
+                console.warn('Could not store proofs in localStorage:', e);
+            }
+
+            this.updateProofStatus(`Day ${dayNumber} completed! Proof generated and stored.`);
+
             return {
                 success: true,
-                proof: result,
+                proof,
                 newState
             };
+
         } catch (error) {
-            console.error('Failed to generate proof:', error);
+            console.error('Error generating proof:', error);
+            this.updateProofStatus('Error: Could not generate proof for this day\'s operations.');
+            this.displayProof(dayNumber, null, {
+                error: error.message,
+                input: {
+                    initial_state: this.currentState.toNoirInput(),
+                    final_state: newState.toNoirInput(),
+                    day_number: dayNumber.toString(),
+                    glasses_made: glassesMade.toString(),
+                    signs_made: signsMade.toString(),
+                    price: price.toString(),
+                    weather: weather.toString(),
+                    glasses_sold: glassesSold.toString(),
+                    random_factor: randomFactor.toString()
+                }
+            });
             return {
                 success: false,
                 error: error.message
@@ -166,33 +242,39 @@ class ZkProver {
     }
 
     async submitFinalProof() {
-        if (this.dailyProofs.length === 0) {
-            throw new Error('No daily proofs generated yet');
+        if (!this.initialized) {
+            return {
+                success: false,
+                error: 'ZK system not initialized'
+            };
         }
 
-        try {
-            // Submit the final proof to zkVerify testnet
-            const { events, transactionResult } = await this.session
-                .aggregate(1, this.dailyProofs.length); // Domain 1, using number of proofs as aggregation ID
+        console.log('Collecting final game statistics and proofs...');
+        
+        const finalStats = {
+            totalDays: this.currentState.dayCount,
+            finalAssets: this.currentState.currentAssets,
+            totalProfit: this.currentState.totalProfit,
+            bestDayProfit: this.currentState.bestDayProfit,
+            totalGlassesSold: this.currentState.totalGlassesSold,
+            bankruptcies: this.currentState.bankruptcyCount
+        };
 
-            // Listen for any errors
-            events.on('ErrorEvent', (eventData) => {
-                console.error('Proof submission error:', eventData);
-                throw new Error(`Proof submission failed: ${JSON.stringify(eventData)}`);
-            });
+        console.log('Final game statistics:', finalStats);
+        console.log('Total proofs generated:', this.dailyProofs.length);
 
-            // Wait for the transaction result
-            const result = await transactionResult;
-            this.finalProof = result;
-            return result;
-        } catch (error) {
-            console.error('Failed to submit final proof:', error);
-            throw error;
-        }
-    }
+        this.finalProof = {
+            stats: finalStats,
+            proofs: this.dailyProofs.map(p => p.proof)
+        };
 
-    getGameState() {
-        return this.currentState;
+        this.updateProofStatus('Game completed! All proofs generated successfully.');
+
+        return {
+            success: true,
+            stats: finalStats,
+            proofs: this.dailyProofs.map(p => p.proof)
+        };
     }
 
     getDailyProofs() {
@@ -201,6 +283,10 @@ class ZkProver {
 
     getFinalProof() {
         return this.finalProof;
+    }
+
+    getGameState() {
+        return this.currentState;
     }
 }
 

@@ -18,6 +18,117 @@
             margin: 0 auto;
             border: 2px solid #fff;
             padding: 20px;
+            position: relative;
+        }
+        #wallet-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: flex-start;
+            z-index: 100;
+        }
+        .wallet-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        .wallet-icon {
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            background-color: #333;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #fff;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 101;
+            color: #fff;
+        }
+        .wallet-icon::before,
+        .wallet-icon::after {
+            display: none !important;
+        }
+        .wallet-icon:hover {
+            background-color: #444;
+            transform: scale(1.1);
+        }
+        .wallet-icon.connected {
+            background-color: #006400;
+            border-color: #00ff00;
+        }
+        .wallet-icon.error {
+            background-color: #640000;
+            border-color: #ff0000;
+        }
+        .wallet-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .wallet-popup {
+            display: none;
+            position: absolute;
+            top: 50px;
+            right: 0;
+            background: #111;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            min-width: 200px;
+            z-index: 1000;
+            color: #fff;
+            pointer-events: auto;
+        }
+        .wallet-popup.show {
+            display: block;
+        }
+        .connect-button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 1001;
+            position: relative;
+            pointer-events: auto;
+        }
+        .connect-button:hover {
+            background: #45a049;
+            transform: scale(1.02);
+        }
+        .connect-button:active {
+            transform: scale(0.98);
+        }
+        #wallet-status {
+            color: #fff;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            word-break: break-all;
+        }
+        .account-select {
+            width: 100%;
+            margin-top: 10px;
+            padding: 8px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: #222;
+            color: #fff;
+            pointer-events: auto;
         }
         #game-display {
             white-space: pre;
@@ -29,11 +140,12 @@
         #game-input {
             margin: 20px 0;
         }
-        input {
+        input[type="number"] {
             background-color: #000;
             color: #fff;
             border: 1px solid #fff;
             padding: 5px;
+            margin: 0 5px;
             width: 100px;
             text-align: center;
         }
@@ -43,75 +155,73 @@
             border: none;
             padding: 5px 10px;
             cursor: pointer;
-            margin-left: 10px;
+            margin: 0 5px;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            background-color: #ddd;
+        }
+        #transaction-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: none;
+        }
+        #transaction-status.show {
+            display: block;
+        }
+        .wallet-icon::before {
+            content: '👛';
+            font-size: 20px;
         }
         #proof-status {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #fff;
+            margin: 10px 0;
+            padding: 5px;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
-    <script>
-        // Add early console log to check if HTML is parsing
-        console.log('Starting HTML parse');
-        
-        // More detailed error handling
-        window.addEventListener('error', function(event) {
-            console.error('Global error:', event.error);
-            console.error('Error details:', {
-                message: event.message,
-                filename: event.filename,
-                lineno: event.lineno,
-                colno: event.colno
-            });
-        });
+    <script type="module">
+        import * as NoirWasm from './noir_wasm/main.mjs';
+        window.NoirWasm = NoirWasm;
     </script>
+    <script src="bundle.js" defer></script>
 </head>
 <body>
     <div id="game-container">
+        <div id="wallet-controls">
+            <div class="wallet-container">
+                <div id="wallet-icon" class="wallet-icon">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none">
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7z"></path>
+                        <path d="M17 12h4"></path>
+                        <path d="M21 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"></path>
+                    </svg>
+                </div>
+                <div id="wallet-popup" class="wallet-popup">
+                    <div id="wallet-status">Wallet not connected</div>
+                    <button id="connect-wallet" class="connect-button">Connect Wallet</button>
+                    <select id="account-select" class="account-select" style="display: none;"></select>
+                </div>
+            </div>
+        </div>
+        
         <h1>LEMONADE STAND</h1>
         <div id="game-display"></div>
         <div id="game-input">
             <input type="number" id="player-input" placeholder="Enter value">
             <button onclick="window.submitInput()">Submit</button>
         </div>
+        
         <div id="proof-status"></div>
+        <div id="transaction-status"></div>
     </div>
-    
-    <script>
-        console.log('Body script executing');
-        window.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM Content Loaded');
-        });
-
-        // Initialize game after bundle loads
-        function initGame() {
-            console.log('Initializing game...');
-            if (typeof LemonadeStand === 'undefined') {
-                console.error('LemonadeStand class not found');
-                return;
-            }
-            if (!window.game) {
-                console.log('Creating new game instance');
-                window.game = new LemonadeStand();
-                window.gameLoaded = true;
-                console.log('Game initialized successfully');
-            }
-        }
-
-        window.addEventListener('load', function() {
-            console.log('Window loaded');
-            if (!window.gameLoaded) {
-                console.log('Game not loaded yet, waiting for bundle...');
-                // Give bundle.js a moment to execute
-                setTimeout(initGame, 100);
-            }
-        });
-    </script>
-
-    <script src="/bundle.js" 
-            onerror="console.error('Failed to load bundle.js')" 
-            onload="console.log('bundle.js loaded successfully'); initGame();"
-            defer></script>
 </body>
 </html> 
