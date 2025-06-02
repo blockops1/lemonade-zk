@@ -1,22 +1,36 @@
 {
   "name": "lemonade-zk",
   "version": "1.0.0",
-  "description": "Lemonade Stand game with ZK proof of score",
-  "main": "src/game/game.js",
+  "description": "A Lemonade Stand game with ZK proofs",
+  "main": "src/index.js",
   "scripts": {
     "start": "webpack serve",
     "build": "webpack",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["game", "zero-knowledge-proof", "lemonade-stand"],
+  "keywords": [
+    "game",
+    "zero-knowledge-proof",
+    "lemonade-stand"
+  ],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "@noir-lang/backend_barretenberg": "^0.36.0",
+    "@noir-lang/noir_js": "^1.0.0-beta.6",
+    "zkverifyjs": "^0.14.0"
+  },
   "devDependencies": {
     "@babel/core": "^7.27.4",
     "@babel/preset-env": "^7.27.2",
     "babel-loader": "^10.0.0",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
     "webpack": "^5.99.9",
-    "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.1"
+    "webpack-cli": "^4.10.0",
+    "webpack-dev-server": "^4.15.1"
   }
 }

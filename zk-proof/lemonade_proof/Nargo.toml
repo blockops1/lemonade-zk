@@ -1,0 +1,6 @@
+[package]
+name = "lemonade_proof"
+type = "bin"
+authors = [""]
+
+[dependencies]

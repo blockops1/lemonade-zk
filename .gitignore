@@ -5,8 +5,13 @@ yarn-debug.log
 yarn-error.log
 
 # Build outputs
-dist/
-build/
+/dist
+/build
+
+# Webpack development files
+*.hot-update.*
+public/bundle.js
+public/bundle.js.map
 
 # Environment variables
 .env

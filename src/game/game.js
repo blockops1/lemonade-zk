@@ -1,3 +1,5 @@
+import ZkProver from './zk_prover';
+
 class LemonadeStand {
     constructor() {
         this.assets = 2.00; // Starting money
@@ -123,6 +125,10 @@ class LemonadeStand {
         
         // Remove global event listener before adding a new one
         document.removeEventListener('keypress', this.handleGlobalKeypress);
+        
+        // Initialize ZK prover
+        this.zkProver = new ZkProver();
+        this.proofStatus = document.getElementById('proof-status');
         
         this.setupEventListeners();
         this.startDay();
@@ -449,7 +455,7 @@ Press Enter to start a new game...`;
         this.inputElement.focus();
     }
 
-    runSimulation() {
+    async runSimulation() {
         const startingAssets = this.assets;
         const lemonadeCost = this.glasses * this.costPerGlass;
         const signsCost = this.signs * this.costPerSign;
@@ -473,8 +479,39 @@ Press Enter to start a new game...`;
         };
         this.lastDayProfit = profit;
         
-        // Add some console logging to help debug
-        console.log('Daily financial report:', this.lastDayDetails);
+        // Generate ZK proof for this day's operations
+        try {
+            this.proofStatus.textContent = 'Generating proof for today\'s operations...';
+            
+            const weatherIndex = {
+                [this.weather.HOT_AND_DRY]: 0,
+                [this.weather.SUNNY]: 1,
+                [this.weather.CLOUDY]: 2
+            }[this.currentWeather];
+            
+            const priceInCents = Math.round(this.price * 100);
+            const randomFactor = Math.floor(Math.random() * 80) + 60; // 60 to 140
+            
+            const proofResult = await this.zkProver.generateDailyProof(
+                this.day,
+                this.glasses,
+                this.signs,
+                priceInCents,
+                weatherIndex,
+                glassesSold,
+                randomFactor
+            );
+            
+            if (proofResult.success) {
+                this.proofStatus.textContent = `Day ${this.day} proof generated successfully!`;
+            } else {
+                this.proofStatus.textContent = `Failed to generate proof: ${proofResult.error}`;
+                console.error('Proof generation failed:', proofResult.error);
+            }
+        } catch (error) {
+            this.proofStatus.textContent = `Error generating proof: ${error.message}`;
+            console.error('Error in proof generation:', error);
+        }
         
         // Update game statistics
         this.totalProfit += profit;
@@ -523,6 +560,16 @@ GAME STATISTICS:
                 this.currentState = this.gameState.GAME_OVER;
                 resultDisplay += '\n\nGAME OVER! You went bankrupt twice. Final Score: $' + this.totalProfit.toFixed(2);
                 resultDisplay += '\n\nPress Enter to start a new game...';
+                
+                // Submit final proof to zkVerify
+                try {
+                    this.proofStatus.textContent = 'Submitting final proof to zkVerify...';
+                    const finalProofResult = await this.zkProver.submitFinalProof();
+                    this.proofStatus.textContent = `Final proof submitted! Transaction hash: ${finalProofResult.txHash}`;
+                } catch (error) {
+                    this.proofStatus.textContent = `Error submitting final proof: ${error.message}`;
+                    console.error('Error submitting final proof:', error);
+                }
             } else {
                 resultDisplay += '\n\nBANKRUPTCY! But you get another chance with $2.00';
                 this.assets = 2.00;
@@ -547,6 +594,16 @@ Total Sales:        ${this.totalGlassesSold} glasses
 ${this.assets >= 100.00 ? "You reached $100 in assets!" : "You survived 30 days!"}
 
 Press Enter to start a new game...`;
+
+            // Submit final proof to zkVerify
+            try {
+                this.proofStatus.textContent = 'Submitting final proof to zkVerify...';
+                const finalProofResult = await this.zkProver.submitFinalProof();
+                this.proofStatus.textContent = `Final proof submitted! Transaction hash: ${finalProofResult.txHash}`;
+            } catch (error) {
+                this.proofStatus.textContent = `Error submitting final proof: ${error.message}`;
+                console.error('Error submitting final proof:', error);
+            }
         } else {
             this.currentState = this.gameState.GAME_OVER;
             resultDisplay += '\n\nPress Enter to continue to Day ' + (this.day + 1);

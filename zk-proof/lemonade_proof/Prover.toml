@@ -1,0 +1,89 @@
+# Public inputs
+final_assets = "500" # $5.00
+total_days = "5"
+total_profit = "300" # $3.00 profit
+win_by_assets = false
+
+# Private inputs
+glasses_made = [
+    "10", "12", "15", "20", "25",  # First 5 days
+    "0", "0", "0", "0", "0",       # Remaining days padded with zeros
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0"
+]
+
+signs_made = [
+    "2", "3", "3", "4", "5",       # First 5 days
+    "0", "0", "0", "0", "0",       # Remaining days padded with zeros
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0"
+]
+
+prices = [
+    "25", "30", "25", "30", "35",  # First 5 days
+    "0", "0", "0", "0", "0",       # Remaining days padded with zeros
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0"
+]
+
+weather = [
+    "1", "0", "1", "0", "1",       # First 5 days (1=SUNNY, 0=HOT_AND_DRY)
+    "0", "0", "0", "0", "0",       # Remaining days padded with zeros
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0"
+]
+
+glasses_sold = [
+    "8", "10", "12", "15", "20",   # First 5 days
+    "0", "0", "0", "0", "0",       # Remaining days padded with zeros
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0",
+    "0", "0", "0", "0", "0"
+]
+
+random_factors = [
+    "100", "120", "90", "110", "100", # First 5 days
+    "100", "100", "100", "100", "100", # Remaining days padded with standard value
+    "100", "100", "100", "100", "100",
+    "100", "100", "100", "100", "100",
+    "100", "100", "100", "100", "100",
+    "100", "100", "100", "100", "100"
+]
+
+# Previous day's state
+previous_state = {
+    current_assets = "200",     # Starting with $2.00
+    total_profit = "0",
+    day_count = "0",
+    best_day_profit = "0",
+    total_glasses_sold = "0",
+    bankruptcy_count = "0"
+}
+
+# Expected final state
+final_state = {
+    current_assets = "250",     # $2.50
+    total_profit = "50",        # $0.50 profit
+    day_count = "1",
+    best_day_profit = "50",     # $0.50 best day
+    total_glasses_sold = "8",
+    bankruptcy_count = "0"
+}
+
+# Current day's inputs
+day_number = "1"
+glasses_made = "10"
+signs_made = "2"
+price = "25"          # 25 cents
+weather = "1"         # SUNNY
+glasses_sold = "8"
+random_factor = "100" # 1.0x multiplier 
