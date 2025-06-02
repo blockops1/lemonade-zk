@@ -1,128 +1,157 @@
 const path = require('path');
-const webpack = require('webpack');
-const CopyWebpackPlugin = require('copy-webpack-plugin');
-const NodePolyfillPlugin = require('node-polyfill-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
   mode: 'development',
   entry: './src/index.js',
   output: {
-    filename: 'bundle.js',
-    path: path.resolve(__dirname, 'public'),
+    path: path.resolve(__dirname, 'dist'),
+    filename: '[name].[contenthash].js',
+    clean: true,
     publicPath: '/',
-    clean: true
+    assetModuleFilename: (pathData) => {
+      const filepath = path.dirname(pathData.filename).split('/').slice(1).join('/');
+      return `${filepath}/[name].[hash][ext]`;
+    },
+    globalObject: 'this',
+    chunkFilename: '[name].[contenthash].js'
   },
-  devtool: 'source-map',
+  devtool: process.env.NODE_ENV === 'production' 
+    ? 'hidden-source-map'  // Production: separate file, less detailed
+    : 'eval-cheap-module-source-map',  // Development: faster builds, less detailed
+  optimization: {
+    moduleIds: 'deterministic',
+    runtimeChunk: 'single',
+    splitChunks: {
+      chunks: 'all',
+      maxInitialRequests: 10,
+      minSize: 20000,
+      maxSize: 50000,
+      cacheGroups: {
+        wasm: {
+          test: /\.wasm$/,
+          type: 'asset/resource',
+          priority: 40,
+          filename: 'wasm/[name].[contenthash][ext]',
+          maxSize: 2000000 // 2MB max size for WASM chunks
+        },
+        noir: {
+          test: /[\\/]node_modules[\\/](@noir-lang)[\\/]/,
+          name: 'noir-vendor',
+          chunks: 'all',
+          priority: 20,
+          enforce: true,
+          maxSize: 5000000 // 5MB max size for Noir chunks
+        },
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+          priority: 10,
+          maxSize: 1000000 // 1MB max size for vendor chunks
+        }
+      }
+    }
+  },
   module: {
     rules: [
       {
+        test: /\.wasm$/,
+        type: 'asset/resource',
+        generator: {
+          filename: 'wasm/[name].[hash][ext]'
+        }
+      },
+      {
         test: /\.js$/,
-        exclude: /node_modules\/(?!(@aztec\/bb\.js|@noir-lang\/backend_barretenberg))/,
+        exclude: /node_modules/,
         use: {
           loader: 'babel-loader',
           options: {
-            presets: [
-              ['@babel/preset-env', {
-                targets: {
-                  browsers: ['last 2 versions']
-                }
-              }]
-            ],
-            cacheDirectory: true
+            presets: ['@babel/preset-env'],
+            cacheDirectory: true,
+            sourceType: 'unambiguous'
           }
-        }
+        },
+        type: 'javascript/auto'
       },
       {
-        test: /\.wasm$/,
-        type: "asset/resource",
+        test: /\.(png|svg|jpg|jpeg|gif)$/i,
+        type: 'asset/resource',
         generator: {
-          filename: 'wasm/[hash][ext][query]'
+          filename: 'images/[name].[hash][ext]'
         }
       },
       {
-        test: /\.json$/,
-        type: 'json'
+        test: /\.(woff|woff2|eot|ttf|otf)$/i,
+        type: 'asset/resource',
+        generator: {
+          filename: 'fonts/[name].[hash][ext]'
+        }
       }
     ]
   },
-  externals: {
-    '@noir-lang/noir_wasm': 'NoirWasm'
+  experiments: {
+    asyncWebAssembly: true,
+    syncWebAssembly: true,
+    topLevelAwait: true
   },
+  resolve: {
+    extensions: ['.js', '.wasm'],
+    fallback: {
+      crypto: false,
+      path: false,
+      fs: false
+    }
+  },
+  plugins: [
+    new HtmlWebpackPlugin({
+      template: 'public/index.html',
+      inject: true,
+      filename: 'index.html',
+      minify: process.env.NODE_ENV === 'production' ? {
+        removeComments: true,
+        collapseWhitespace: true,
+        removeRedundantAttributes: true,
+        useShortDoctype: true,
+        removeEmptyAttributes: true,
+        removeStyleLinkTypeAttributes: true,
+        keepClosingSlash: true,
+        minifyJS: true,
+        minifyCSS: true,
+        minifyURLs: true,
+      } : false
+    })
+  ],
   devServer: {
     static: {
       directory: path.join(__dirname, 'public'),
-      watch: true
+      watch: true,
+      staticOptions: {
+        contentType: 'application/javascript'
+      }
     },
-    port: 9000,
-    host: 'localhost',
-    hot: true,
-    liveReload: true,
+    devMiddleware: {
+      writeToDisk: true,
+    },
     historyApiFallback: true,
+    port: 9000,
+    hot: true,
+    compress: true,
     client: {
-      overlay: {
-        errors: true,
-        warnings: false
-      },
-      progress: true,
-      reconnect: true
-    },
-    watchFiles: ['src/**/*', 'public/**/*'],
-    open: true
-  },
-  resolve: {
-    extensions: ['.js', '.wasm', '.mjs', '.json'],
-    fallback: {
-      "crypto": require.resolve("crypto-browserify"),
-      "stream": require.resolve("stream-browserify"),
-      "assert": require.resolve("assert/"),
-      "http": require.resolve("stream-http"),
-      "https": require.resolve("https-browserify"),
-      "os": require.resolve("os-browserify/browser"),
-      "url": require.resolve("url/"),
-      "buffer": require.resolve("buffer/"),
-      "process": require.resolve("process/browser.js"),
-      "path": require.resolve("path-browserify"),
-      "worker_threads": false,
-      "fs": false
-    },
-    alias: {
-      '@aztec/bb.js': path.resolve(__dirname, 'node_modules/@aztec/bb.js/dest/browser/index.js'),
-      'process': 'process/browser.js',
-      'circuit.json': path.resolve(__dirname, 'zk-proof/lemonade_proof/target/lemonade_proof.json')
+      overlay: true,
+      progress: true
     }
   },
-  experiments: {
-    asyncWebAssembly: true,
-    syncWebAssembly: true
-  },
-  plugins: [
-    new NodePolyfillPlugin({
-      excludeAliases: ['console']
-    }),
-    new webpack.ProvidePlugin({
-      process: ['process/browser.js'],
-      Buffer: ['buffer', 'Buffer']
-    }),
-    new webpack.DefinePlugin({
-      'process.browser': true,
-      'process.env.NODE_DEBUG': JSON.stringify(process.env.NODE_DEBUG),
-      'process.env': JSON.stringify(process.env)
-    }),
-    new CopyWebpackPlugin({
-      patterns: [
-        { from: 'public', to: '' },
-        {
-          from: path.resolve(__dirname, 'node_modules/@noir-lang/noir_wasm/dist/web'),
-          to: 'noir_wasm'
-        }
-      ]
-    }),
-    new webpack.HotModuleReplacementPlugin()
-  ],
   stats: {
-    colors: true,
-    modules: true,
-    reasons: true,
-    errorDetails: true
+    modules: false,
+    children: false,
+    chunks: false,
+    chunkModules: false
+  },
+  performance: {
+    maxAssetSize: 10000000, // 10MB
+    maxEntrypointSize: 10000000, // 10MB
+    hints: process.env.NODE_ENV === 'production' ? 'warning' : false
   }
 }; 

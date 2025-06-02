@@ -1,156 +1,152 @@
-# Lemonade Stand Game with ZK Proofs
+# Lemonade Stand with Zero-Knowledge Proofs
 
-A modern web-based remake of the classic Apple II game "Lemonade Stand" with Zero-Knowledge Proof integration. Run your own virtual lemonade business while dealing with weather conditions, inventory management, and pricing strategies - all with cryptographic verification of game states.
-
-## Features
-
-- Classic gameplay mechanics with modern improvements
-- Dynamic weather system affecting sales
-- Detailed financial reporting
-- Multiple game states (win/bankruptcy conditions)
-- Zero-Knowledge Proof verification of game states
-- Browser-based gameplay
-- Web3 wallet integration
-
-## Prerequisites
-
-- Node.js v18 or higher
-- npm v9 or higher
-- Rust (for Noir circuit compilation)
-- [Nargo](https://noir-lang.org/getting_started/nargo_installation) (Noir's package manager)
-- A modern web browser with WebAssembly support
-- A Web3 wallet (e.g., MetaMask) for blockchain interactions
-
-## Environment Setup
-
-1. Install Rust and Cargo:
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-2. Install Nargo:
-```bash
-curl -L https://raw.githubusercontent.com/noir-lang/noir/master/installer/install.sh | bash
-```
-
-3. Clone the repository:
-```bash
-git clone https://github.com/blockops1/lemonade-zk.git
-cd lemonade-zk
-```
-
-4. Install Node.js dependencies:
-```bash
-npm install
-```
-
-5. Configure your environment:
-   - Copy `config.example.js` to `config.js`
-   - Update the configuration values as needed
-   - If using a local blockchain, ensure it's running and update the RPC URL
-
-## Building the ZK Circuit
-
-1. Compile the Noir circuit:
-```bash
-cd zk-proof/lemonade_proof
-nargo compile
-cd ../..
-```
-
-2. Copy the circuit artifacts:
-```bash
-npm run copy-circuit
-```
-
-## Development
-
-1. Start the development server:
-```bash
-npm start
-```
-
-2. Open http://localhost:9000 in your browser
-
-3. Connect your Web3 wallet when prompted
-
-## Build for Production
-
-```bash
-npm run build
-```
-
-The production build will be available in the `dist` directory.
+A classic Lemonade Stand game enhanced with zero-knowledge proofs to verify game state transitions.
 
 ## Project Structure
 
 ```
 lemonade-zk/
-├── src/                    # Source code
-│   ├── game/              # Game logic
-│   └── wallet/            # Wallet integration
-├── zk-proof/              # Zero-Knowledge proof circuits
-│   └── lemonade_proof/    # Main game circuit
-├── public/                # Static assets
-└── config.example.js      # Configuration template
+├── src/                  # Source code
+│   ├── assets/          # Static assets
+│   ├── components/      # React components
+│   ├── game/           # Game logic
+│   ├── utils/          # Utility functions
+│   ├── wallet/         # Wallet integration
+│   ├── zk/             # Zero-knowledge related code
+│   │   ├── circuits/   # Noir circuits
+│   │   └── proofs/     # Proof generation/verification
+│   └── index.js        # Application entry point
+├── public/             # Public assets
+│   └── index.html      # HTML template
+├── dist/               # Build output
+│   └── wasm/          # Compiled WASM files
+├── scripts/           # Build and utility scripts
+└── webpack.config.js  # Webpack configuration
 ```
 
-## Game Instructions
+## Development
 
-1. Each day you'll need to make three decisions:
-   - How many glasses of lemonade to make (at $0.02 per glass)
-   - How many advertising signs to make (at $0.15 per sign)
-   - What price to charge per glass (in cents)
+1. Install dependencies:
+```bash
+npm install
+```
 
-2. Weather conditions affect sales:
-   - Sunny: Normal sales
-   - Hot and Dry: Increased sales
-   - Cloudy: Reduced sales
+2. Start development server:
+```bash
+npm run dev
+```
 
-3. Win conditions:
-   - Reach $100 in assets, or
-   - Survive for 30 days
+This will:
+- Start webpack dev server
+- Watch for WASM file changes
+- Serve the application at http://localhost:9000
 
-4. Lose condition:
-   - Go bankrupt twice
+## Building
 
-## Zero-Knowledge Proof System
+1. For production:
+```bash
+npm run build
+```
 
-The game uses Zero-Knowledge Proofs to verify:
+2. For development:
+```bash
+npm start
+```
+
+## Zero-Knowledge Proofs
+
+The game uses zero-knowledge proofs to verify:
 - Valid game state transitions
-- Correct score calculations
-- Legitimate win conditions
+- Correct profit calculations
+- Legitimate game completion
 
-The proofs are generated client-side using WebAssembly and can be verified on-chain.
+### Circuit Development
 
-## Technologies Used
+1. Circuit modifications should be made in `src/zk/circuits/`
+2. After modifying circuits:
+   ```bash
+   cd src/zk/circuits
+   nargo compile
+   ```
+3. The compiled circuit will be available in `src/zk/circuits/target/`
 
-- JavaScript (ES6+)
-- Noir (Zero-Knowledge Proof circuit language)
-- WebAssembly
-- Webpack
-- Node.js
-- Web3.js
+### Proof Generation
+
+Proofs are generated for:
+- Each day's transactions
+- Final game state verification
+
+## Testing
+
+Run tests with:
+```bash
+npm test
+```
+
+## Configuration
+
+Copy `config.example.js` to `config.js` and update the values:
+
+```javascript
+module.exports = {
+  // Network configuration
+  network: {
+    endpoint: 'wss://your-network-endpoint',
+    chainId: 1
+  },
+  
+  // Zero-knowledge configuration
+  zk: {
+    circuitPath: 'src/zk/circuits/target/lemonade_proof.json',
+    verificationKeyPath: 'src/zk/circuits/target/vk.hex',
+    wasmDirectory: 'dist/wasm'
+  }
+}
+```
+
+## Key Components
+
+### Zero-Knowledge Integration
+- `src/zk/circuits/`: Contains the compiled circuit definitions
+- `src/zk/proofs/`: Handles proof generation for game actions
+- `src/zk/verifier/`: Manages proof verification
+
+### Game Logic
+- `src/game/game.js`: Core game mechanics and state management
+- `src/game/LemonadeStand.js`: Main game class implementation
+
+### Build System
+- Webpack configuration optimized for WASM and ZK proof integration
+- Efficient chunk splitting and caching
+- Source map generation for development
+
+## Development Guidelines
+
+### Adding New Features
+1. Place new components in appropriate directories
+2. Follow the established module structure
+3. Update webpack configuration if needed
+
+### Working with ZK Proofs
+1. Circuit modifications should be made in `zk-proof/lemonade_proof/`
+2. Compile circuits before building the application
+3. Test proof generation and verification thoroughly
 
 ## Troubleshooting
 
 ### Common Issues
+1. Memory Issues
+   - Increase Node.js memory limit if needed
+   - Use production build for better performance
 
-1. WASM loading errors:
-   - Make sure your browser supports WebAssembly
-   - Check that the WASM files are properly built
-   - Clear browser cache if needed
+2. WASM Loading
+   - Check browser console for WASM-related errors
+   - Verify WASM files are properly copied to public directory
 
-2. Circuit compilation errors:
-   - Ensure Nargo is properly installed
-   - Check Rust toolchain version
-   - Run `nargo clean` before recompiling
-
-3. Webpack build issues:
-   - Clear the `dist` and `public/dist` directories
-   - Remove node_modules and run `npm install` again
-   - Check for Node.js version compatibility
+3. Build Problems
+   - Clear cache and node_modules if experiencing build issues
+   - Verify all dependencies are properly installed
 
 ## License
 
-MIT License 
+MIT License - See LICENSE file for details 

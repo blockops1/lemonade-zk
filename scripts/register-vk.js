@@ -1,61 +1,51 @@
-const { zkVerifySession } = require('zkverifyjs');
-const fs = require('fs');
 const path = require('path');
+const fs = require('fs');
+const { execSync } = require('child_process');
+
+// Update paths to use new directory structure
+const CIRCUIT_PATH = path.join(__dirname, '../src/zk/circuits');
+const vkPath = path.join(CIRCUIT_PATH, 'target/vk');
+const vkHexPath = path.join(CIRCUIT_PATH, 'target/vk.hex');
 
 async function registerVerificationKey() {
     try {
-        // Read the verification key
-        const vkPath = path.join(__dirname, '../zk-proof/lemonade_proof/target/vk');
+        // Check if verification key exists
+        if (!fs.existsSync(vkPath)) {
+            console.error('Verification key not found. Please compile the circuit first.');
+            return false;
+        }
+
+        // Read verification key
         const vk = fs.readFileSync(vkPath);
-        
-        console.log('Starting zkVerify session...');
-        
-        // Start a session with Volta testnet
-        const session = await zkVerifySession.start()
-            .Volta()
-            .withWallet({
-                source: process.env.WALLET_SOURCE,
-                accountAddress: process.env.ACCOUNT_ADDRESS,
-            });
+        console.log('Verification key loaded:', vk.length, 'bytes');
 
-        console.log('Registering verification key...');
-        
-        // Register the verification key for UltraPlonk
-        const { events, transactionResult } = await session
-            .registerVerificationKey()
-            .ultraplonk({
-                numberOfPublicInputs: 9 // Number of public inputs in our circuit
-            })
-            .execute(vk);
+        // Convert to hex if needed
+        if (!fs.existsSync(vkHexPath)) {
+            const vkHex = '0x' + vk.toString('hex');
+            fs.writeFileSync(vkHexPath, vkHex);
+            console.log('Verification key converted to hex');
+        }
 
-        // Listen for events
-        events.on('includedInBlock', (eventData) => {
-            console.log('Transaction included in block:', eventData);
-        });
+        // Get statement hash
+        const statementHash = execSync(
+            'nargo get-statement-hash',
+            { cwd: CIRCUIT_PATH }
+        ).toString().trim();
 
-        events.on('finalized', (eventData) => {
-            console.log('Transaction finalized:', eventData);
-        });
+        console.log('Statement hash:', statementHash);
 
-        // Wait for the transaction result
-        const result = await transactionResult;
-        console.log('Verification key registered successfully!');
-        console.log('Statement hash:', result.statementHash);
-
-        // Save the statement hash for later use
-        fs.writeFileSync(
-            path.join(__dirname, '../zk-proof/lemonade_proof/target/statement_hash'),
-            result.statementHash
-        );
-
-        // Close the session
-        await session.close();
-
+        return {
+            success: true,
+            vk: vk.toString('hex'),
+            statementHash
+        };
     } catch (error) {
         console.error('Error registering verification key:', error);
-        process.exit(1);
+        return {
+            success: false,
+            error: error.message
+        };
     }
 }
 
-// Run the registration
-registerVerificationKey().catch(console.error); 
+module.exports = { registerVerificationKey }; 

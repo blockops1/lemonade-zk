@@ -3,29 +3,25 @@ const path = require('path');
 const { execSync } = require('child_process');
 const TOML = require('@iarna/toml');
 
-// Path to the Noir project
-const NOIR_PROJECT_PATH = path.join(__dirname, '../zk-proof/lemonade_proof');
+// Update paths to use new directory structure
+const NOIR_PROJECT_PATH = path.join(__dirname, '../src/zk/circuits');
 
 function generateProof(proofInput) {
     try {
-        // Write input to Prover.toml
-        const tomlContent = TOML.stringify(proofInput);
-        fs.writeFileSync(path.join(NOIR_PROJECT_PATH, 'Prover.toml'), tomlContent);
+        // Compile the circuit
+        console.log('Compiling circuit...');
+        execSync('nargo compile', { cwd: NOIR_PROJECT_PATH });
 
-        // Run Noir prove command
+        // Generate proof
         console.log('Generating proof...');
-        execSync('nargo prove', { 
+        const proofResult = execSync('nargo prove', { 
             cwd: NOIR_PROJECT_PATH,
-            stdio: 'inherit'
+            input: JSON.stringify(proofInput)
         });
 
-        // Read the generated proof
-        const proofPath = path.join(NOIR_PROJECT_PATH, 'target/proofs/lemonade_proof.proof');
-        const proof = fs.readFileSync(proofPath);
-        
         return {
             success: true,
-            proof: proof.toString('hex')
+            proof: proofResult.toString()
         };
     } catch (error) {
         console.error('Error generating proof:', error);

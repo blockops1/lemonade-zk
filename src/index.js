@@ -50,27 +50,6 @@ const initialize = async () => {
     }
 };
 
-// Handle hot module replacement
-if (module.hot) {
-    module.hot.accept('./game/game', () => {
-        console.log('Hot reloading game module');
-        const oldGame = game;
-        game = new LemonadeStand();
-        window.game = game;
-        
-        // Transfer state if needed
-        if (oldGame) {
-            // Add any state transfer logic here if needed
-            console.log('Transferred game state');
-        }
-    });
-    
-    module.hot.accept('./wallet/WalletManager', () => {
-        console.log('Hot reloading wallet module');
-        // Wallet manager state should persist through localStorage
-    });
-}
-
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initialize);

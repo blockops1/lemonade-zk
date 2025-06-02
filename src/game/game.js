@@ -1,4 +1,4 @@
-import ZkProver from './zk_prover';
+import ZkProver from '../zk/proofs/prover';
 
 console.log('game.js module loading...');
 

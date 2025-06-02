@@ -1,11 +1,12 @@
-import { compile, initialize } from '@noir-lang/noir_wasm';
+// Import WASM modules
+import { compile } from '@noir-lang/noir_wasm';
 import { BarretenbergBackend } from '@noir-lang/backend_barretenberg';
 import { Noir } from '@noir-lang/noir_js';
-import circuit from 'circuit.json';
+import circuit from '../circuits/lemonade_proof.json';
+import { loadWasmModule, isWasmSupported } from '../../utils/wasmLoader';
 
 // Debug log the circuit import
 console.log('Circuit import:', {
-    circuit,
     hasCircuit: !!circuit,
     hasBytecode: !!(circuit && circuit.bytecode),
     keys: circuit ? Object.keys(circuit) : [],
@@ -72,10 +73,13 @@ class ZkProver {
     }
 
     updateProofStatus(message) {
+        console.log('Proof Status:', message);
         if (this.proofStatus) {
             this.proofStatus.textContent = message;
         }
-        console.log('Proof Status:', message);
+        if (this.proofDisplay) {
+            this.proofDisplay.textContent = `Status: ${message}\n${this.proofDisplay.textContent}`;
+        }
     }
 
     displayProof(dayNumber, proof, input) {
@@ -104,29 +108,23 @@ class ZkProver {
                 console.log('Initializing Noir WASM for browser-based proof generation...');
                 this.updateProofStatus('Initializing ZK system...');
 
-                // Debug log the circuit again
-                console.log('Circuit before initialization:', {
-                    circuit,
-                    hasCircuit: !!circuit,
-                    hasBytecode: !!(circuit && circuit.bytecode),
-                    keys: circuit ? Object.keys(circuit) : [],
-                    bytecodeType: circuit && circuit.bytecode ? typeof circuit.bytecode : 'undefined',
-                    bytecodeLength: circuit && circuit.bytecode ? circuit.bytecode.length : 0,
-                    isBase64: circuit && circuit.bytecode ? /^[A-Za-z0-9+/=]+$/.test(circuit.bytecode) : false,
-                    bytecodeStart: circuit && circuit.bytecode ? circuit.bytecode.substring(0, 100) : ''
+                // Create and initialize the backend first
+                this.backend = new BarretenbergBackend(circuit, {
+                    threads: navigator.hardwareConcurrency || 4
                 });
 
-                // Initialize the WASM module first
-                await initialize();
-
-                // Initialize the backend with the circuit
-                this.backend = new BarretenbergBackend(circuit);
+                // Wait for the backend to be ready
                 await this.backend.init();
                 
-                // Create Noir instance with initialized backend and circuit ABI
-                this.noir = new Noir(circuit.abi, this.backend);
+                // Create Noir instance with initialized backend
+                this.noir = new Noir(circuit, this.backend);
                 
-                console.log('Noir WASM initialized successfully');
+                console.log('NoirWasm loaded:', {
+                    backend: this.backend,
+                    noir: this.noir,
+                    circuit: circuit
+                });
+                
                 this.updateProofStatus('ZK system ready');
                 this.initialized = true;
                 return true;
@@ -214,52 +212,18 @@ class ZkProver {
             // Display the proof in the browser
             this.displayProof(dayNumber, proof, input);
 
-            // Store state update and proof
+            // Update current state and store proof
             this.currentState = newState;
-            this.dailyProofs.push({
-                dayNumber,
-                glassesMade,
-                signsMade,
-                price,
-                weather,
-                glassesSold,
-                randomFactor,
-                profit,
-                proof
-            });
-
-            // Optionally store in localStorage
-            try {
-                localStorage.setItem('lemonade_proofs', JSON.stringify(this.dailyProofs));
-            } catch (e) {
-                console.warn('Could not store proofs in localStorage:', e);
-            }
-
-            this.updateProofStatus(`Day ${dayNumber} completed! Proof generated and stored.`);
+            this.dailyProofs.push({ dayNumber, proof, input });
 
             return {
                 success: true,
                 proof,
                 newState
             };
-
         } catch (error) {
-            console.error('Error generating proof:', error);
-            this.updateProofStatus('Error: Could not generate proof for this day\'s operations.');
-            this.displayProof(dayNumber, null, {
-                error: error.message,
-                input: {
-                    initial_state: this.currentState.toNoirInput(),
-                    final_state: newState.toNoirInput(),
-                    day_number: dayNumber.toString(),
-                    glasses_made: glassesMade.toString(),
-                    signs_made: signsMade.toString(),
-                    price: price.toString(),
-                    weather: weather.toString(),
-                    glasses_sold: glassesSold.toString(),
-                    random_factor: randomFactor.toString()
-                }
-            });
+            console.error('Failed to generate proof:', error);
+            this.updateProofStatus('Failed to generate proof');
             return {
                 success: false,
                 error: error.message
@@ -268,39 +232,24 @@ class ZkProver {
     }
 
     async submitFinalProof() {
-        if (!this.initialized) {
+        try {
+            const finalInput = {
+                daily_proofs: this.dailyProofs.map(dp => dp.proof),
+                final_state: this.currentState.toNoirInput()
+            };
+
+            this.finalProof = await this.noir.generateProof(finalInput);
+            return {
+                success: true,
+                proof: this.finalProof
+            };
+        } catch (error) {
+            console.error('Failed to generate final proof:', error);
             return {
                 success: false,
-                error: 'ZK system not initialized'
+                error: error.message
             };
         }
-
-        console.log('Collecting final game statistics and proofs...');
-        
-        const finalStats = {
-            totalDays: this.currentState.dayCount,
-            finalAssets: this.currentState.currentAssets,
-            totalProfit: this.currentState.totalProfit,
-            bestDayProfit: this.currentState.bestDayProfit,
-            totalGlassesSold: this.currentState.totalGlassesSold,
-            bankruptcies: this.currentState.bankruptcyCount
-        };
-
-        console.log('Final game statistics:', finalStats);
-        console.log('Total proofs generated:', this.dailyProofs.length);
-
-        this.finalProof = {
-            stats: finalStats,
-            proofs: this.dailyProofs.map(p => p.proof)
-        };
-
-        this.updateProofStatus('Game completed! All proofs generated successfully.');
-
-        return {
-            success: true,
-            stats: finalStats,
-            proofs: this.dailyProofs.map(p => p.proof)
-        };
     }
 
     getDailyProofs() {
@@ -316,4 +265,5 @@ class ZkProver {
     }
 }
 
+// Export only the ZkProver class
 export default ZkProver; 

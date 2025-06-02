@@ -1,33 +1,37 @@
 # Dependencies
-node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
+/node_modules
+/.pnp
+.pnp.js
 
-# Build outputs
+# Production
 /dist
-/build
-public/dist/
-public/*.wasm
-public/*.module.wasm
-public/noir_wasm/
 
-# Webpack development files
-*.hot-update.*
-public/bundle.js
-public/bundle.js.map
+# Testing
+/coverage
 
-# Environment variables
+# Environment
 .env
 .env.local
-.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# IDE specific files
-.idea/
+# Build artifacts
+*.wasm
+*.wasm.map
+/src/zk/circuits/target/
+
+# IDE
 .vscode/
+.idea/
 *.swp
 *.swo
 
-# OS specific files
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
 .DS_Store
 Thumbs.db 
