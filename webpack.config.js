@@ -34,7 +34,14 @@ module.exports = {
       },
       {
         test: /\.wasm$/,
-        type: "asset/resource"
+        type: "asset/resource",
+        generator: {
+          filename: 'wasm/[hash][ext][query]'
+        }
+      },
+      {
+        test: /\.json$/,
+        type: 'json'
       }
     ]
   },
@@ -63,7 +70,7 @@ module.exports = {
     open: true
   },
   resolve: {
-    extensions: ['.js', '.wasm', '.mjs'],
+    extensions: ['.js', '.wasm', '.mjs', '.json'],
     fallback: {
       "crypto": require.resolve("crypto-browserify"),
       "stream": require.resolve("stream-browserify"),
@@ -80,7 +87,8 @@ module.exports = {
     },
     alias: {
       '@aztec/bb.js': path.resolve(__dirname, 'node_modules/@aztec/bb.js/dest/browser/index.js'),
-      'process': 'process/browser.js'
+      'process': 'process/browser.js',
+      'circuit.json': path.resolve(__dirname, 'zk-proof/lemonade_proof/target/lemonade_proof.json')
     }
   },
   experiments: {

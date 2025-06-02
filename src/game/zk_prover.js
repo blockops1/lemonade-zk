@@ -1,7 +1,18 @@
-import { compile } from '@noir-lang/noir_wasm';
+import { compile, initialize } from '@noir-lang/noir_wasm';
 import { BarretenbergBackend } from '@noir-lang/backend_barretenberg';
 import { Noir } from '@noir-lang/noir_js';
-import circuit from '../../zk-proof/lemonade_proof/target/lemonade_proof.json';
+import circuit from 'circuit.json';
+
+// Debug log the circuit import
+console.log('Circuit import:', {
+    circuit,
+    hasCircuit: !!circuit,
+    hasBytecode: !!(circuit && circuit.bytecode),
+    keys: circuit ? Object.keys(circuit) : [],
+    bytecodeType: circuit && circuit.bytecode ? typeof circuit.bytecode : 'undefined',
+    bytecodeLength: circuit && circuit.bytecode ? circuit.bytecode.length : 0,
+    isBase64: circuit && circuit.bytecode ? /^[A-Za-z0-9+/=]+$/.test(circuit.bytecode) : false
+});
 
 class GameState {
     constructor(currentAssets = 200, totalProfit = 0, dayCount = 0, bestDayProfit = 0, totalGlassesSold = 0, bankruptcyCount = 0) {
@@ -92,13 +103,28 @@ class ZkProver {
             try {
                 console.log('Initializing Noir WASM for browser-based proof generation...');
                 this.updateProofStatus('Initializing ZK system...');
-                
-                // Create Barretenberg backend
+
+                // Debug log the circuit again
+                console.log('Circuit before initialization:', {
+                    circuit,
+                    hasCircuit: !!circuit,
+                    hasBytecode: !!(circuit && circuit.bytecode),
+                    keys: circuit ? Object.keys(circuit) : [],
+                    bytecodeType: circuit && circuit.bytecode ? typeof circuit.bytecode : 'undefined',
+                    bytecodeLength: circuit && circuit.bytecode ? circuit.bytecode.length : 0,
+                    isBase64: circuit && circuit.bytecode ? /^[A-Za-z0-9+/=]+$/.test(circuit.bytecode) : false,
+                    bytecodeStart: circuit && circuit.bytecode ? circuit.bytecode.substring(0, 100) : ''
+                });
+
+                // Initialize the WASM module first
+                await initialize();
+
+                // Initialize the backend with the circuit
                 this.backend = new BarretenbergBackend(circuit);
                 await this.backend.init();
                 
-                // Create Noir instance
-                this.noir = new Noir(circuit, this.backend);
+                // Create Noir instance with initialized backend and circuit ABI
+                this.noir = new Noir(circuit.abi, this.backend);
                 
                 console.log('Noir WASM initialized successfully');
                 this.updateProofStatus('ZK system ready');
