@@ -7,6 +7,10 @@ yarn-error.log
 # Build outputs
 /dist
 /build
+public/dist/
+public/*.wasm
+public/*.module.wasm
+public/noir_wasm/
 
 # Webpack development files
 *.hot-update.*
